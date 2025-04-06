@@ -169,9 +169,6 @@
                         <a href="{{ route('passenger.auth.google') }}" class="btn btn-icon btn-lg rounded-pill btn-outline-google">
                             <i class="tf-icons ti ti-brand-google"></i>
                         </a>
-                        <a href="{{ route('passenger.auth.facebook') }}" class="btn btn-icon btn-lg rounded-pill btn-outline-facebook">
-                            <i class="tf-icons ti ti-brand-facebook"></i>
-                        </a>
                     </div>
                 </div>
             </div>

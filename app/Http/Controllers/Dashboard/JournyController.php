@@ -12,7 +12,7 @@ class JournyController extends Controller
 {
     public function index()
     {
-        $journeys = Journey::with('driver', 'pickupCity', 'dropoffCity')->get();
+        $journeys = Journey::with('driver', 'pickupCity', 'dropoffCity')->where('driver_id', Auth::guard('driver')->user()->id)->get();
         $cities = City::all();
         return view('frontend.journeys.index', compact('journeys', 'cities'));
     }

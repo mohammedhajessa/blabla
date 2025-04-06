@@ -428,11 +428,11 @@ id="layout-navbar">
         data-bs-toggle="dropdown">
         <div class="avatar avatar-online">
           @if(Auth::guard('driver')->check())
-          <img src="{{ asset('public/'.Auth::guard('driver')->user()->profile_picture) }}" alt class="rounded-circle" />
+          <img src="{{ asset('public/'.Auth::guard('driver')->user()->profile_picture.'/image') }}" alt class="rounded-circle" />
           @elseif(Auth::guard('passenger')->check())
           <img src="{{ asset('public/'.Auth::guard('passenger')->user()->profile_picture) }}" alt class="rounded-circle" />
           @elseif(Auth::check())
-          <img src="{{ asset('public/'.Auth::user()->profile_picture) }}" alt class="rounded-circle" />
+          <img src="{{ asset('assets/img/avatars/3.png') }}" alt class="rounded-circle" />
           @else
           <img src="{{ asset('assets/img/avatars/3.png') }}" alt class="rounded-circle" />
           @endif

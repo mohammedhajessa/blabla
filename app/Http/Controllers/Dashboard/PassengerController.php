@@ -17,7 +17,7 @@ class PassengerController extends Controller
 
     public function index()
     {
-        $passengers = Passenger::all();
+        $passengers = Passenger::with('passengerProfile')->get();
         return view('frontend.passenger.index', compact('passengers'));
     }
 

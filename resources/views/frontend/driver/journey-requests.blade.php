@@ -4,6 +4,23 @@
 <div class="container-xxl flex-grow-1 container-p-y">
     <h4 class="fw-bold py-3 mb-4">My Journey Requests</h4>
 
+    <!-- Debugging Tools (Remove in production) -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Debug Tools</h5>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="resetBookingCache()">Reset Booking Cache</button>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info" role="alert">
+                <strong>Pusher Status:</strong> <span id="pusher-status">Connecting...</span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted">Your driver ID: {{ auth()->guard('driver')->id() }}</small><br>
+                <small class="text-muted">Pusher Channel: driver-{{ auth()->guard('driver')->id() }}</small>
+            </div>
+        </div>
+    </div>
+
     <!-- Notifications -->
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -95,18 +112,54 @@
     </div>
 </div>
 
-{{--  <script>
-    // Enable Pusher logging - don't include this in production
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<script>
+    // Enable Pusher logging for development
     Pusher.logToConsole = true;
 
+    // Connect to Pusher
     var pusher = new Pusher('{{ env('PUSHER_APP_KEY') }}', {
-        cluster: '{{ env('PUSHER_APP_CLUSTER') }}'
+        cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
+        useTLS: true
     });
 
-    var channel = pusher.subscribe('driver-{{ auth()->guard('driver')->id() }}');
+    // Debug function to reset booking cache
+    function resetBookingCache() {
+        localStorage.clear();
+        console.log('Local storage cleared!');
+        document.getElementById('pusher-status').textContent = 'Cache cleared. Reconnecting...';
+
+        // Attempt to reconnect to Pusher
+        pusher.disconnect();
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    }
+
+    // Subscribe to the driver's channel
+    const driverId = '{{ auth()->guard('driver')->id() }}';
+    const channelName = 'driver-' + driverId;
+    var channel = pusher.subscribe(channelName);
+
+    // Update connection status
+    pusher.connection.bind('connected', function() {
+        document.getElementById('pusher-status').textContent = 'Connected ✓';
+        document.getElementById('pusher-status').className = 'text-success';
+        console.log('Successfully connected to Pusher, listening on channel:', channelName);
+    });
+
+    pusher.connection.bind('error', function(err) {
+        document.getElementById('pusher-status').textContent = 'Connection Error: ' + err.error.data.message;
+        document.getElementById('pusher-status').className = 'text-danger';
+        console.error('Pusher connection error:', err);
+    });
+
+    // Listen for new booking events
     channel.bind('new-booking', function(data) {
+        console.log('New booking notification received!', data);
+
         // Hide the no notifications message
-        $('#no-notifications').hide();
+        document.getElementById('no-notifications').style.display = 'none';
 
         // Create a new notification
         var notification = `
@@ -116,7 +169,22 @@
                     <div>
                         <strong>New Booking Request:</strong> ${data.message}
                         <br>
-                        <small>Journey ID: ${data.journey_id}</small>
+                        <small>Journey ID: ${data.journey_id} | Passenger ID: ${data.passenger_id}</small>
+                        <br>
+                        <div class="mt-2">
+                            <form action="/dashboard/driver-journey-requests/update-status/${data.booking_id}" method="POST" style="display: inline;">
+                                @csrf
+                                @method('PUT')
+                                <input type="hidden" name="status" value="accepted">
+                                {{--  <button type="submit" class="btn btn-success btn-sm">Accept</button>  --}}
+                            </form>
+                            <form action="/dashboard/driver-journey-requests/update-status/${data.booking_id}" method="POST" style="display: inline; margin-left: 10px;">
+                                @csrf
+                                @method('PUT')
+                                <input type="hidden" name="status" value="rejected">
+                                {{--  <button type="submit" class="btn btn-danger btn-sm">Reject</button>  --}}
+                            </form>
+                        </div>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -124,15 +192,16 @@
         `;
 
         // Add the notification to the container
-        $('#notifications-container').prepend(notification);
+        document.getElementById('notifications-container').innerHTML = notification + document.getElementById('notifications-container').innerHTML;
 
-        // Play a notification sound
-        var audio = new Audio('/assets/sounds/notification.mp3');
-        audio.play();
-
-        // Refresh the journey requests table
-        location.reload();
+        // Play a notification sound if available
+        try {
+            var audio = new Audio('/assets/sounds/notification.mp3');
+            audio.play().catch(e => console.warn('Could not play notification sound:', e));
+        } catch (e) {
+            console.warn('Error playing notification sound:', e);
+        }
     });
-</script>  --}}
+</script>
 
 @endsection

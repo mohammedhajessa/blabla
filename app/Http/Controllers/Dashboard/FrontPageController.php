@@ -50,23 +50,38 @@ class FrontPageController extends Controller
             'journey_id' => 'required|exists:journeys,id',
         ]);
 
+        // Log incoming request details for debugging
+        Log::info('Journey booking request received', [
+            'journey_id' => $request->journey_id,
+            'request_format' => $request->header('Content-Type', 'unknown'),
+            'has_passenger' => Auth::guard('passenger')->check()
+        ]);
+
         $passengerId = Auth::guard('passenger')->user()->id;
         $journeyId = $request->journey_id;
 
         // Check if journey exists and has available seats
         $journey = Journey::find($journeyId);
         if (!$journey) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Journey not found'
-            ], 404);
+            Log::warning('Journey not found', ['journey_id' => $journeyId]);
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Journey not found'
+                ], 404);
+            }
+            return redirect()->back()->with('error', 'Journey not found');
         }
 
         if ($journey->available_seats <= 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No available seats for this journey'
-            ], 400);
+            Log::warning('No available seats for journey', ['journey_id' => $journeyId, 'available_seats' => $journey->available_seats]);
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No available seats for this journey'
+                ], 400);
+            }
+            return redirect()->back()->with('error', 'No available seats for this journey');
         }
 
         // Check if the passenger already has a pending request for this journey
@@ -75,11 +90,15 @@ class FrontPageController extends Controller
             ->first();
 
         if ($existingRequest) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You already have a pending request for this journey',
-                'is_booked' => true
-            ], 400);
+            Log::info('Passenger already has a pending request', ['journey_id' => $journeyId, 'passenger_id' => $passengerId]);
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You already have a pending request for this journey',
+                    'is_booked' => true
+                ], 400);
+            }
+            return redirect()->back()->with('warning', 'You already have a pending request for this journey');
         }
 
         // Create the journey request
@@ -89,6 +108,8 @@ class FrontPageController extends Controller
             'status' => 'pending',
         ]);
 
+        Log::info('Journey request created', ['request_id' => $journeyRequest->id]);
+
         // Get the booking with related data for the notification
         $booking = JourneyRequest::with(['passenger', 'journey.driver'])
             ->where('id', $journeyRequest->id)
@@ -97,6 +118,7 @@ class FrontPageController extends Controller
         // Notify the driver using Laravel notification
         if ($booking && $booking->journey && $booking->journey->driver) {
             $booking->journey->driver->notify(new NewBookingNotification($booking));
+            Log::info('Driver notification sent via Laravel notification', ['driver_id' => $booking->journey->driver->id]);
         }
 
         // Send real-time notification to driver using Pusher
@@ -115,6 +137,14 @@ class FrontPageController extends Controller
                 $driverId = $booking->journey->driver->id;
                 $passengerName = $booking->passenger->name ?? 'Passenger';
 
+                Log::info('Sending Pusher notification to driver', [
+                    'driver_id' => $driverId,
+                    'channel' => 'driver-' . $driverId,
+                    'event' => 'new-booking',
+                    'journey_id' => $journeyId,
+                    'booking_id' => $booking->id
+                ]);
+
                 $pusher->trigger('driver-' . $driverId, 'new-booking', [
                     'message' => 'New booking request from ' . $passengerName,
                     'journey_id' => $journeyId,
@@ -122,17 +152,32 @@ class FrontPageController extends Controller
                     'passenger_id' => $passengerId,
                     'timestamp' => now()->toDateTimeString()
                 ]);
+            } else {
+                Log::warning('Failed to send Pusher notification - Invalid booking data', [
+                    'booking_id' => $booking->id ?? 'null',
+                    'has_journey' => isset($booking->journey),
+                    'has_driver' => isset($booking->journey->driver)
+                ]);
             }
         } catch (\Exception $e) {
             // Log the error but continue
-            Log::error('Pusher notification error: ' . $e->getMessage());
+            Log::error('Pusher notification error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'journey_id' => $journeyId,
+                'passenger_id' => $passengerId
+            ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Journey booked successfully',
-            'request_id' => $journeyRequest->id
-        ]);
+        // Return response based on request type
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Journey booked successfully',
+                'request_id' => $journeyRequest->id
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Journey booked successfully. You will be notified when the driver responds.');
     }
 
     public function checkPendingRequests()

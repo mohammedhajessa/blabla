@@ -11,7 +11,6 @@
                                 <span class="text-heading">Total Passengers</span>
                                 <div class="d-flex align-items-center my-1">
                                     <h4 class="mb-0 me-2">{{ $passengers->count() }}</h4>
-                                    <p class="text-success mb-0">(+15%)</p>
                                 </div>
                                 <small class="mb-0">All registered passengers</small>
                             </div>
@@ -29,16 +28,17 @@
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div class="content-left">
-                                <span class="text-heading">Active Passengers</span>
+                                <span class="text-heading">Male Passengers</span>
                                 <div class="d-flex align-items-center my-1">
-                                    <h4 class="mb-0 me-2">{{ $passengers->where('status', 'active')->count() }}</h4>
-                                    <p class="text-success mb-0">(+10%)</p>
+                                    <h4 class="mb-0 me-2">{{ $passengers->filter(function($passenger) {
+                                        return $passenger->passengerProfile && $passenger->passengerProfile->gender == 'male';
+                                    })->count() }}</h4>
                                 </div>
-                                <small class="mb-0">Currently active passengers</small>
+                                <small class="mb-0">Total male passengers</small>
                             </div>
                             <div class="avatar">
-                                <span class="avatar-initial rounded bg-label-success">
-                                    <i class="ti ti-user-check ti-26px"></i>
+                                <span class="avatar-initial rounded bg-label-info">
+                                    <i class="ti ti-gender-male ti-26px"></i>
                                 </span>
                             </div>
                         </div>
@@ -50,16 +50,17 @@
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div class="content-left">
-                                <span class="text-heading">Verified Passengers</span>
+                                <span class="text-heading">Female Passengers</span>
                                 <div class="d-flex align-items-center my-1">
-                                    <h4 class="mb-0 me-2">{{ $passengers->where('is_verified', true)->count() }}</h4>
-                                    <p class="text-success mb-0">(+8%)</p>
+                                    <h4 class="mb-0 me-2">{{ $passengers->filter(function($passenger) {
+                                        return $passenger->passengerProfile && $passenger->passengerProfile->gender == 'female';
+                                    })->count() }}</h4>
                                 </div>
-                                <small class="mb-0">Identity verified</small>
+                                <small class="mb-0">Total female passengers</small>
                             </div>
                             <div class="avatar">
-                                <span class="avatar-initial rounded bg-label-info">
-                                    <i class="ti ti-shield-check ti-26px"></i>
+                                <span class="avatar-initial rounded bg-label-danger">
+                                    <i class="ti ti-gender-female ti-26px"></i>
                                 </span>
                             </div>
                         </div>
@@ -75,7 +76,6 @@
                                 <div class="d-flex align-items-center my-1">
                                     <h4 class="mb-0 me-2">
                                         {{ $passengers->where('created_at', '>=', now()->subMonth())->count() }}</h4>
-                                    <p class="text-success mb-0">(+12%)</p>
                                 </div>
                                 <small class="mb-0">Joined this month</small>
                             </div>
@@ -102,8 +102,7 @@
                             <th>Passenger Name</th>
                             <th>Email</th>
                             <th>Phone</th>
-                            <th>Status</th>
-                            <th>Verified</th>
+                            <th>Gender</th>
                             <th>Created Date</th>
                             <th>Actions</th>
                         </tr>
@@ -115,16 +114,7 @@
                                 <td>{{ ucfirst($passenger->name) }}</td>
                                 <td>{{ $passenger->email }}</td>
                                 <td>{{ $passenger->phone ?? 'N/A' }}</td>
-                                <td>
-                                    <span class="badge bg-label-{{ $passenger->status == 'active' ? 'success' : 'danger' }}">
-                                        {{ ucfirst($passenger->status ?? 'inactive') }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-label-{{ $passenger->is_verified ? 'success' : 'warning' }}">
-                                        {{ $passenger->is_verified ? 'Verified' : 'Unverified' }}
-                                    </span>
-                                </td>
+                                <td>{{ ucfirst($passenger->passengerProfile->gender ?? 'N/A') }}</td>
                                 <td>{{ $passenger->created_at->format('d M Y') }}</td>
                                 <td>
                                     <div class="d-flex align-items-center">
@@ -147,7 +137,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">No passengers found</td>
+                                <td colspan="7" class="text-center">No passengers found</td>
                             </tr>
                         @endforelse
                     </tbody>

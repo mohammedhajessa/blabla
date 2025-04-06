@@ -46,8 +46,8 @@ Route::get('/auth/google', [PassengerAuthController::class, 'redirectToGoogle'])
 Route::get('/auth/google/callback', [PassengerAuthController::class, 'handleGoogleCallback'])->name('passenger.auth.google.callback');
 
 //Facebook Auth
-Route::get('/auth/facebook', [PassengerAuthController::class, 'redirectToFacebook'])->name('passenger.auth.facebook');
-Route::get('/auth/facebook/callback', [PassengerAuthController::class, 'handleFacebookCallback'])->name('passenger.auth.facebook.callback');
+// Route::get('/auth/facebook', [PassengerAuthController::class, 'redirectToFacebook'])->name('passenger.auth.facebook');
+// Route::get('/auth/facebook/callback', [PassengerAuthController::class, 'handleFacebookCallback'])->name('passenger.auth.facebook.callback');
 
 
 Route::middleware('driver')->group(function(){

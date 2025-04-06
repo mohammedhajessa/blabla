@@ -389,6 +389,8 @@
                                 }
 
                                 function bookJourney(journeyId) {
+                                    console.log('Starting booking process for journey ID:', journeyId);
+
                                     // Show booking in progress indicator
                                     const button = document.querySelector(`.book-journey-btn[data-journey-id="${journeyId}"]`);
                                     if (button) {
@@ -398,30 +400,32 @@
 
                                     // Check if user is logged in as passenger
                                     @if(Auth::guard('passenger')->check())
-                                        // Get CSRF token with fallback
-                                        let csrfToken = '';
-                                        const metaTag = document.querySelector('meta[name="csrf-token"]');
-                                        if (metaTag) {
-                                            csrfToken = metaTag.getAttribute('content');
-                                        } else {
-                                            console.warn('CSRF token meta tag not found. Using Laravel session token as fallback.');
-                                            // Using a fallback token
-                                            csrfToken = '{{ csrf_token() }}';
-                                        }
+                                        // Create a form data object for more reliable submission
+                                        const formData = new FormData();
+                                        formData.append('journey_id', journeyId);
+                                        formData.append('_token', '{{ csrf_token() }}');
 
-                                        // Make an AJAX request to book the journey
+                                        console.log('Sending booking request to server...');
+
+                                        // Use fetch but with form data instead of JSON
                                         fetch('{{ route("frontpage.bookJourney") }}', {
                                     method: 'POST',
+                                            body: formData,
                                     headers: {
-                                        'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': csrfToken
-                                    },
-                                    body: JSON.stringify({
-                                                journey_id: journeyId
-                                    })
-                                })
-                                .then(response => response.json())
+                                                'X-Requested-With': 'XMLHttpRequest'
+                                            }
+                                        })
+                                        .then(response => {
+                                            console.log('Server response status:', response.status);
+                                            return response.json().catch(error => {
+                                                // Handle non-JSON responses
+                                                console.error('Error parsing JSON:', error);
+                                                throw new Error('Invalid server response');
+                                            });
+                                        })
                                 .then(data => {
+                                            console.log('Server response data:', data);
+
                                     if (data.success) {
                                                 // Update button to show success
                                                 if (button) {
@@ -435,6 +439,9 @@
 
                                                 // Store booked journeys in localStorage
                                                 storeBookedJourney(journeyId);
+
+                                                // Refresh the journey display
+                                                setTimeout(refreshJourneyDisplay, 1000);
                                             } else {
                                                 // Check if it's already booked
                                                 if (data.is_booked) {
@@ -453,18 +460,18 @@
                                                     if (button) {
                                                         button.className = 'btn btn-danger book-journey-btn';
                                                         button.innerHTML = 'Try Again';
-                                        button.disabled = false;
+                                                        button.disabled = false;
                                                     }
                                                     showToast('danger', 'Booking Failed', data.message || 'Failed to book journey. Please try again.');
                                                 }
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error('Error in fetch operation:', error);
                                             if (button) {
                                                 button.className = 'btn btn-danger book-journey-btn';
                                                 button.innerHTML = 'Try Again';
-                                    button.disabled = false;
+                                        button.disabled = false;
                                             }
                                             showToast('danger', 'Error', 'An error occurred while sending your request. Please try again.');
                                         });
@@ -477,10 +484,12 @@
                                 // Function to store booked journeys in localStorage
                                 function storeBookedJourney(journeyId) {
                                     try {
-                                        let bookedJourneys = JSON.parse(localStorage.getItem('bookedJourneys')) || [];
+                                        const userId = "{{ Auth::guard('passenger')->id() }}";
+                                        const storageKey = 'bookedJourneys_' + userId;
+                                        let bookedJourneys = JSON.parse(localStorage.getItem(storageKey)) || [];
                                         if (!bookedJourneys.includes(journeyId)) {
                                             bookedJourneys.push(journeyId);
-                                            localStorage.setItem('bookedJourneys', JSON.stringify(bookedJourneys));
+                                            localStorage.setItem(storageKey, JSON.stringify(bookedJourneys));
                                         }
                                     } catch (e) {
                                         console.warn('Failed to store booked journey in localStorage:', e);
@@ -490,11 +499,25 @@
                                 // Function to check if a journey is already booked
                                 function isJourneyBooked(journeyId) {
                                     try {
-                                        let bookedJourneys = JSON.parse(localStorage.getItem('bookedJourneys')) || [];
+                                        const userId = "{{ Auth::guard('passenger')->id() }}";
+                                        const storageKey = 'bookedJourneys_' + userId;
+                                        let bookedJourneys = JSON.parse(localStorage.getItem(storageKey)) || [];
                                         return bookedJourneys.includes(journeyId);
                                     } catch (e) {
                                         console.warn('Failed to check booked journey in localStorage:', e);
                                         return false;
+                                    }
+                                }
+
+                                // Function to clear booked journeys for a user
+                                function clearBookedJourneys() {
+                                    try {
+                                        const userId = "{{ Auth::guard('passenger')->id() }}";
+                                        const storageKey = 'bookedJourneys_' + userId;
+                                        localStorage.removeItem(storageKey);
+                                        console.log('Cleared booked journeys for user:', userId);
+                                    } catch (e) {
+                                        console.warn('Failed to clear booked journeys:', e);
                                     }
                                 }
 
@@ -564,9 +587,9 @@
                                             if (document.querySelector('.datatables-journeys')) {
                                                 refreshJourneyDisplay();
                                             }
-                                        }
-                                    })
-                                    .catch(error => {
+                                    }
+                                })
+                                .catch(error => {
                                         console.error('Error checking pending requests:', error);
                                     });
                                     @endif

@@ -64,7 +64,7 @@ class PassengerAuthController extends Controller
 
     public function redirectToGoogle()
     {
-        return Socialite::driver('google')->redirect();
+        return Socialite::driver('google')->stateless()->redirect();
     }
 
     public function handleGoogleCallback()
@@ -72,20 +72,27 @@ class PassengerAuthController extends Controller
         $passenger = Socialite::driver('google')->stateless()->user();
         $findPassenger = Passenger::where('provider_id', $passenger->id)->first();
         if($findPassenger){
-            Auth::login($findPassenger);
-            return redirect()->route('passenger.dashboard');
+            Auth::guard('passenger')->login($findPassenger);
+            return redirect()->route('frontpage.index');
         }
         $newUser = Passenger::updateOrCreate([
-            'name' => $passenger->name,
             'email' => $passenger->email,
+        ],[
+            'name' => $passenger->name,
             'provider' => 'google',
             'provider_id' => $passenger->id,
             'password' => Hash::make(random_int(100000, 999999)),
             'token' => $passenger->token,
             'refresh_token' => $passenger->refreshToken,
         ]);
-        Auth::login($newUser);
-        return redirect()->route('passenger.dashboard');
+        if (!$newUser->passengerProfile) {
+            $newUser->passengerProfile()->create([
+                'passenger_id' => $newUser->id,
+            ]);
+        }
+
+        Auth::guard('passenger')->login($newUser);
+        return redirect()->route('frontpage.index');
     }
 
 

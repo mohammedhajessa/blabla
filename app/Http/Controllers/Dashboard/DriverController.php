@@ -228,7 +228,7 @@ class DriverController extends Controller
             if($driver->driverProfile->image){
                 $this->deleteImage($driver->driverProfile->image);
             }
-            $driver->driverProfile->image = $this->storeImage($request->file('image'), 'driver_profiles');
+            $driver->driverProfile->image = $this->storeImage($request->file('image'), 'driver_profiles/image');
         }
         $driver->driverProfile->save();
         $driver->save();
